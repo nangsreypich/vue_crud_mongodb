@@ -19,9 +19,10 @@
         <input type="number" class="form-control" v-model="book.rating" required>
       </div>
       <div class="form-group">
-        <label for="genres">Genres (comma-separated)</label>
+        <label for="genres">Genres</label>
         <input type="text" class="form-control" v-model="book.genres">
       </div>
+
 
       <!-- Add margin-top to the button container for spacing -->
       <div class="form-group mt-3">
