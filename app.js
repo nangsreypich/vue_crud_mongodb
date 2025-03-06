@@ -1,124 +1,107 @@
 const express = require('express');
-const { connectToDb, getDb } = require('./db');
-const { ObjectId } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
 
-// init app & middleware
 const app = express();
 app.use(express.json());
-// Enable CORS for all origins (you can restrict this for specific origins later)
-app.use(cors());
+app.use(cors()); // Allow requests from Vue.js
 
-// db connection
+// MongoDB Atlas Connection URI
+const uri = "mongodb+srv://user2000:test123@bookstore.vcmdi.mongodb.net/bookstore?retryWrites=true&w=majority&appName=BookStore";
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
 let db;
 
-connectToDb((err) => {
-    if (!err) {
-        app.listen(3000, () => {
-            console.log('app listening on port 3000');
-        });
-        db = getDb();  // Call getDb() here to retrieve the actual database instance
-    }
-    else {
-        console.log("Failed to connect to database");
-    }
-});
+// Connect to MongoDB
+client.connect()
+    .then(() => {
+        db = client.db("bookstore");
+        console.log("Connected to MongoDB");
+        app.listen(3000, () => console.log("Server running on port 3000"));
+    })
+    .catch(err => console.error("Database connection failed:", err));
 
-// routes
-app.get('/books', (req, res) => {
-    let books = [];
-    let page = parseInt(req.query.p) || 0;  // Parse query string value
-    const booksPerPage = 3;
+// Get all books (paginated)
+app.get('/books', async (req, res) => {
+    try {
+        const page = parseInt(req.query.p) || 0;
+        const booksPerPage = 3;
 
-    db.collection('books')
-        .find()
-        .sort({ author: 1 })
-        .skip(page * booksPerPage)
-        .limit(booksPerPage)
-        .forEach(book => books.push(book))
-        .then(() => {
-            res.status(200).json(books);
-        })
-        .catch((err) => {
-            res.status(500).json({ error: 'Could not fetch the documents' });
-        });
-});
+        const books = await db.collection('books')
+            .find()
+            .sort({ author: 1 })
+            .skip(page * booksPerPage)
+            .limit(booksPerPage)
+            .toArray();
 
-app.post('/books', (req, res) => {
-    const book = req.body;
-
-    db.collection('books')
-        .insertOne(book)
-        .then(result => {
-            res.status(201).json(result);
-        })
-        .catch(err => {
-            res.status(500).json({ error: 'Could not create the documents' });
-        });
-});
-
-
-app.delete('/books/:id', (req, res) => {
-    if (ObjectId.isValid(req.params.id)) {
-        db.collection('books')
-            .deleteOne({ _id: new ObjectId(req.params.id) })
-            .then(result => {
-                res.status(200).json(result);
-            })
-            .catch(err => {
-                res.status(500).json({ error: 'Could not delete the document' });
-            });
-    } else {
-        res.status(500).json({ error: 'Not a valid document' });
+        res.status(200).json(books);
+    } catch (err) {
+        res.status(500).json({ error: 'Could not fetch books', details: err.message });
     }
 });
 
-// Fetch specific book by ID
-app.get('/books/:id', (req, res) => {
+// Get a book by ID
+app.get('/books/:id', async (req, res) => {
     const { id } = req.params;
-    if (ObjectId.isValid(id)) {
-        db.collection('books')
-            .findOne({ _id: new ObjectId(id) })
-            .then(doc => {
-                res.status(200).json(doc);
-            })
-            .catch(err => {
-                res.status(500).json({ error: 'Could not fetch the document' });
-            });
-    } else {
-        res.status(400).json({ error: 'Invalid book ID' });
+    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid book ID' });
+
+    try {
+        const book = await db.collection('books').findOne({ _id: new ObjectId(id) });
+        if (!book) return res.status(404).json({ error: 'Book not found' });
+        res.status(200).json(book);
+    } catch (err) {
+        res.status(500).json({ error: 'Could not fetch the book', details: err.message });
     }
 });
 
-// Update book details
-// Update book details
-app.patch('/books/:id', (req, res) => {
+// Add a new book
+app.post('/books', async (req, res) => {
+    const book = req.body;
+    if (!book.title || !book.author) {
+        return res.status(400).json({ error: 'Title and author are required' });
+    }
+
+    try {
+        const result = await db.collection('books').insertOne(book);
+        res.status(201).json({ message: 'Book added', bookId: result.insertedId });
+    } catch (err) {
+        res.status(500).json({ error: 'Could not add book', details: err.message });
+    }
+});
+
+// Delete a book
+app.delete('/books/:id', async (req, res) => {
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid book ID' });
+
+    try {
+        const result = await db.collection('books').deleteOne({ _id: new ObjectId(id) });
+        if (result.deletedCount === 0) return res.status(404).json({ error: 'Book not found' });
+
+        res.status(200).json({ message: 'Book deleted' });
+    } catch (err) {
+        res.status(500).json({ error: 'Could not delete book', details: err.message });
+    }
+});
+
+// Update a book
+app.patch('/books/:id', async (req, res) => {
+    const { id } = req.params;
     const updates = req.body;
 
-    // Ensure title and author are provided
+    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid book ID' });
     if (!updates.title || !updates.author) {
-        return res.status(400).json({ error: 'Title and author are required fields' });
+        return res.status(400).json({ error: 'Title and author are required' });
     }
 
-    // Remove the _id field from the updates object
-    delete updates._id;
+    try {
+        const result = await db.collection('books')
+            .updateOne({ _id: new ObjectId(id) }, { $set: updates });
 
-    // Check if the ID is valid
-    if (ObjectId.isValid(req.params.id)) {
-        db.collection('books')
-            .updateOne({ _id: new ObjectId(req.params.id) }, { $set: updates })
-            .then(result => {
-                if (result.matchedCount === 0) {
-                    return res.status(404).json({ error: 'Book not found' });
-                }
-                res.status(200).json({ message: 'Book updated successfully' });
-            })
-            .catch(err => {
-                console.error('Error details:', err);  // Log error details
-                res.status(500).json({ error: 'Could not update the document', details: err.message });
-            });
-    } else {
-        res.status(400).json({ error: 'Invalid book ID' });
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Book not found' });
+
+        res.status(200).json({ message: 'Book updated successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Could not update book', details: err.message });
     }
 });
-
