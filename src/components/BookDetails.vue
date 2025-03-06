@@ -38,7 +38,7 @@ export default {
   },
   methods: {
     async fetchBook() {
-      const response = await fetch(`http://localhost:3000/books/${this.$route.params.id}`);
+      const response = await fetch(`https://express-backend-n8nt.onrender.com/books/${this.$route.params.id}`);
       this.book = await response.json();
     }
   }

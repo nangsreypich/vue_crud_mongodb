@@ -64,7 +64,7 @@ export default {
         };
 
         // Send the POST request with the correct format
-        const response = await fetch('http://localhost:3000/books', {
+        const response = await fetch('https://express-backend-n8nt.onrender.com/books', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bookToSend) // Sending the array in JSON

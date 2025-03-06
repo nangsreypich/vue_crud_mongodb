@@ -134,7 +134,7 @@
     methods: {
       async fetchBooks() {
         try {
-          const response = await fetch(`http://localhost:3000/books?p=${this.currentPage}`);
+          const response = await fetch(`https://express-backend-n8nt.onrender.com/books?p=${this.currentPage}`);
           const data = await response.json();
           this.books = data;
           this.hasMoreBooks = data.length === 3; // If we get 3 books, assume there are more
@@ -145,7 +145,7 @@
       async deleteBook(id) {
         this.isDeleting = true; // Show loading state
         try {
-          await fetch(`http://localhost:3000/books/${id}`, { method: 'DELETE' });
+          await fetch(`https://express-backend-n8nt.onrender.com/books/${id}`, { method: 'DELETE' });
           this.successMessage = 'Book deleted successfully!'; // Set success message
           this.fetchBooks(); // Reload books after delete
         } catch (error) {

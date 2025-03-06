@@ -53,7 +53,7 @@ export default {
     // Fetch book details when component mounts
     async fetchBook() {
       try {
-        const response = await fetch(`http://localhost:3000/books/${this.$route.params.id}`);
+        const response = await fetch(`https://express-backend-n8nt.onrender.com/books/${this.$route.params.id}`);
         if (response.ok) {
           const bookData = await response.json();
           // Populate book fields with fetched data
@@ -74,7 +74,7 @@ export default {
     // Update book details by sending a PATCH request to the backend
     async updateBook() {
       try {
-        const response = await fetch(`http://localhost:3000/books/${this.$route.params.id}`, {
+        const response = await fetch(`https://express-backend-n8nt.onrender.com/books/${this.$route.params.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
